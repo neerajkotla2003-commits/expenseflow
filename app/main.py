@@ -1,9 +1,20 @@
-from fastapi import FastAPI
+from typing import Annotated
 
+from fastapi import Depends, FastAPI, HTTPException
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
+
+from app.db import get_session
+from app.models import ExpenseClaim
 from app.policy import evaluate_policy
-from app.schemas import PolicyRequest, PolicyResult
+from app.schemas import (
+    ClaimCreate,
+    ClaimRead,
+    PolicyRequest,
+    PolicyResult,
+)
 
-app = FastAPI(title="ExpenseFlow", version="0.1.0")
+app = FastAPI(title="ExpenseFlow", version="0.2.0")
 
 
 @app.get("/healthz")
@@ -13,5 +24,31 @@ def health():
 
 @app.post("/api/v1/policy/check", response_model=PolicyResult)
 def check_policy(expense: PolicyRequest):
-    # Preview only: creates no claim, grants no permission, approves no money.
     return evaluate_policy(expense)
+
+
+@app.post("/api/v1/claims", response_model=ClaimRead, status_code=201)
+def create_claim(
+    expense: ClaimCreate,
+    session: Annotated[Session, Depends(get_session)],
+):
+    claim = ExpenseClaim(
+        category=expense.category.value,
+        amount_paise=expense.amount_paise,
+        currency=expense.currency,
+        status="draft",
+    )
+
+    try:
+        with session.begin():
+            session.add(claim)
+            session.flush()
+            session.refresh(claim)
+            result = ClaimRead.model_validate(claim)
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Could not save the claim. Please try again later.",
+        ) from exc
+
+    return result
