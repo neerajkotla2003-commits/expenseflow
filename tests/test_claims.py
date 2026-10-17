@@ -85,3 +85,39 @@ def test_invalid_claim_is_not_saved(claim_api, changes):
             select(func.count()).select_from(ExpenseClaim)
         )
         assert count == 0
+        
+def test_get_saved_claim(claim_api):
+    client, _ = claim_api
+
+    created = client.post(
+        "/api/v1/claims",
+        json={
+            "category": "meal",
+            "amount_paise": 75000,
+            "currency": "INR",
+        },
+    )
+    assert created.status_code == 201
+
+    claim_id = created.json()["id"]
+    response = client.get(f"/api/v1/claims/{claim_id}")
+
+    assert response.status_code == 200
+    assert response.json() == created.json()
+
+
+def test_get_missing_claim(claim_api):
+    client, _ = claim_api
+
+    response = client.get("/api/v1/claims/999999")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Claim not found."
+
+
+def test_get_claim_requires_positive_id(claim_api):
+    client, _ = claim_api
+
+    response = client.get("/api/v1/claims/0")
+
+    assert response.status_code == 422

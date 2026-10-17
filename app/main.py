@@ -13,6 +13,7 @@ from app.schemas import (
     PolicyRequest,
     PolicyResult,
 )
+from fastapi import Depends, FastAPI, HTTPException, Path
 
 app = FastAPI(title="ExpenseFlow", version="0.2.0")
 
@@ -52,3 +53,25 @@ def create_claim(
         ) from exc
 
     return result
+
+@app.get("/api/v1/claims/{claim_id}", response_model=ClaimRead)
+def get_claim(
+    claim_id: Annotated[int, Path(gt=0)],
+    session: Annotated[Session, Depends(get_session)],
+):
+    try:
+        claim = session.get(ExpenseClaim, claim_id)
+
+        if claim is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Claim not found.",
+            )
+
+        return ClaimRead.model_validate(claim)
+
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Could not retrieve the claim. Please try again later.",
+        ) from exc
