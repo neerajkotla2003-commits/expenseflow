@@ -13,11 +13,11 @@ class Base(DeclarativeBase):
 def get_engine():
     database_url = URL.create(
         drivername="mysql+pymysql",
-        username="expenseflow_app",
+        username=os.getenv("EXPENSEFLOW_DB_USER", "expenseflow_app"),
         password=os.environ["EXPENSEFLOW_DB_PASSWORD"],
-        host="127.0.0.1",
-        port=3307,
-        database="expenseflow",
+        host=os.getenv("EXPENSEFLOW_DB_HOST", "127.0.0.1"),
+        port=int(os.getenv("EXPENSEFLOW_DB_PORT", "3307")),
+        database=os.getenv("EXPENSEFLOW_DB_NAME", "expenseflow"),
     )
 
     return create_engine(
